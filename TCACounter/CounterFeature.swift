@@ -8,10 +8,29 @@
 import Foundation
 import ComposableArchitecture
 
+struct NumberFactClient {
+    var fetch: @Sendable (Int) async throws -> String
+}
+extension NumberFactClient: DependencyKey {
+    static let liveValue = Self {
+        fetch: { number in
+            let (data, _) = try await URLSession.shared
+                .data(from: URL(string: "http://numbersapi.com/\(number)")!)
+            return String(decoding: data, as: UTF8.self)
+        }
+    }
+}
+extension DependencyValues {
+    var NumberFact: NumberFactClient {
+        get { self[NumberFactClient.self] }
+        set { self[NumberFactClient.self] = newValue }
+    }
+}
+
 @Reducer
 struct CounterFeature: Reducer {
     @ObservableState
-    struct State {
+    struct State: Equatable {
         var count = 0
         var fact: String?
         var isLoading: Bool = false
@@ -31,8 +50,10 @@ struct CounterFeature: Reducer {
         case timer
     }
     
+    @Dependency(\.continuousClock) var clock
+    @Dependency(\.numberFact) var numberFact
     
-    var body: some ReducerOf<Self> { // var body: some Reducer<State, Action> {
+    var body: some ReducerOf<Self> {
         Reduce { state, action in
             switch action {
                 case .decrementButtonTapped:
@@ -49,10 +70,7 @@ struct CounterFeature: Reducer {
                     state.fact = nil
                     state.isLoading = true
                     return .run { [count = state.count] send in
-                        let (data, _) = try await URLSession.shared
-                            .data(from: URL(string: "http://numbersapi.com/\(count)")!)
-                        let fact = String(decoding: data, as: UTF8.self)
-                        await send(.factResponse(fact))
+                        try await send(.factResponse(self.numberFact.fetchFact(count)))
                     }
                     
                 case .factResponse(let fact):
@@ -64,8 +82,7 @@ struct CounterFeature: Reducer {
                     state.isTimerRunning.toggle()
                     if state.isTimerRunning {
                         return .run { send in
-                            while true {
-                                try await Task.sleep(for: .seconds(1))
+                            for await _ in self.clock.timer(interval: .seconds(1)) {
                                 await send(.timerTick)
                             }
                         }
