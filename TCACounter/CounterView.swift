@@ -14,11 +14,12 @@ struct CounterView: View {
     
     var body: some View {
         VStack {
-            Text("0")
+            Text("\(store.count)")
                 .font(.largeTitle)
                 .padding()
                 .background(Color.black.opacity(0.1))
                 .cornerRadius(10)
+            
             HStack {
                 Button("-") {
                     store.send(.decrementButtonTapped)
@@ -35,6 +36,23 @@ struct CounterView: View {
                 .padding()
                 .background(Color.black.opacity(0.1))
                 .cornerRadius(10)
+            }
+            
+            Button("Fact") {
+                store.send(.factButtonTapped)
+            }
+            .font(.largeTitle)
+            .padding()
+            .background(Color.black.opacity(0.1))
+            .cornerRadius(10)
+            
+            if store.isLoading {
+                ProgressView()
+            } else if let fact = store.fact {
+                Text(fact)
+                    .font(.largeTitle)
+                    .multilineTextAlignment(.center)
+                    .padding()
             }
         }
     }
