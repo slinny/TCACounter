@@ -15,6 +15,7 @@ struct CounterFeature: Reducer {
         var count = 0
         var fact: String?
         var isLoading: Bool = false
+        var isTimerRunning = false
     }
     
     enum Action {
@@ -22,6 +23,12 @@ struct CounterFeature: Reducer {
         case incrementButtonTapped
         case factButtonTapped
         case factResponse(String)
+        case toggleTimerButtonTapped
+        case timerTick
+    }
+    
+    private enum CancelID {
+        case timer
     }
     
     
@@ -45,13 +52,30 @@ struct CounterFeature: Reducer {
                         let (data, _) = try await URLSession.shared
                             .data(from: URL(string: "http://numbersapi.com/\(count)")!)
                         let fact = String(decoding: data, as: UTF8.self)
-                        print(fact)
                         await send(.factResponse(fact))
                     }
                     
-                case let .factResponse(fact):
+                case .factResponse(let fact):
                     state.fact = fact
                     state.isLoading = false
+                    return .none
+                    
+                case .toggleTimerButtonTapped:
+                    state.isTimerRunning.toggle()
+                    if state.isTimerRunning {
+                        return .run { send in
+                            while true {
+                                try await Task.sleep(for: .seconds(1))
+                                await send(.timerTick)
+                            }
+                        }
+                        .cancellable(id: CancelID.timer)
+                    } else {
+                        return .cancel(id: CancelID.timer)
+                    }
+                    
+                case .timerTick:
+                    state.count += 1
                     return .none
             }
         }
