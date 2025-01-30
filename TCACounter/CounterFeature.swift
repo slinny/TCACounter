@@ -8,27 +8,8 @@
 import Foundation
 import ComposableArchitecture
 
-struct NumberFactClient {
-    var fetch: @Sendable (Int) async throws -> String
-}
-extension NumberFactClient: DependencyKey {
-    static let liveValue = Self {
-        fetch: { number in
-            let (data, _) = try await URLSession.shared
-                .data(from: URL(string: "http://numbersapi.com/\(number)")!)
-            return String(decoding: data, as: UTF8.self)
-        }
-    }
-}
-extension DependencyValues {
-    var NumberFact: NumberFactClient {
-        get { self[NumberFactClient.self] }
-        set { self[NumberFactClient.self] = newValue }
-    }
-}
-
 @Reducer
-struct CounterFeature: Reducer {
+struct CounterFeature {
     @ObservableState
     struct State: Equatable {
         var count = 0
@@ -70,7 +51,7 @@ struct CounterFeature: Reducer {
                     state.fact = nil
                     state.isLoading = true
                     return .run { [count = state.count] send in
-                        try await send(.factResponse(self.numberFact.fetchFact(count)))
+                        try await send(.factResponse(self.numberFact.fetch(count)))
                     }
                     
                 case .factResponse(let fact):
